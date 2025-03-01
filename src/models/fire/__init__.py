@@ -1,0 +1,1 @@
+# Fire models package initialization

@@ -1,0 +1,21 @@
+simulation:
+  area_size: 'small'
+  max_steps: 100
+  seed: 42
+  save_data: true
+  save_location: "~/results"
+
+fire:
+  initial_fires: 1
+  model: 'simple'
+
+swarm:
+  initial_bases: 1
+
+  drone_base:
+    number_of_agents: 10
+
+  drone:
+    battery_capacity: 100
+    communication_range: 10
+    vision_range: 5
