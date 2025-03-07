@@ -24,6 +24,9 @@ def main():
     parser.add_argument('--output-gif', '-o', type=str, default=None,
                         help='Save visualization as GIF')
 
+    parser.add_argument('--dev', '-d', action='store_true',
+                        help='Run in development mode with auto-reload')
+
     args = parser.parse_args()
 
     if args.visualise:
@@ -37,7 +40,17 @@ def main():
         if args.output_gif:
             env["WILDFIRE_OUTPUT_GIF"] = args.output_gif
 
-        subprocess.run(command, env=env)
+        if args.dev:
+            # Run with file watcher in development mode
+            try:
+                from src.watch import run_with_watcher
+                run_with_watcher(command, env)
+            except ImportError:
+                print("Watchdog not installed. Run 'pip install watchdog' for development mode.")
+                subprocess.run(command, env=env)
+        else:
+            # Run normally
+            subprocess.run(command, env=env)
     else:
         config = Config(args.config)
         model = SimulationModel(config)

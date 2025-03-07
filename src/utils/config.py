@@ -31,8 +31,10 @@ class ConfigParsingError(ConfigError):
 class SimulationConfig(BaseModel):
     """Simulation configuration parameters"""
     area_size: Literal['small', 'large'] = 'small'
-    _width: int = 150 if area_size == 'small' else 300
-    _height: int = 150 if area_size == 'small' else 300
+
+    def model_post_init(self, __context: Any) -> None:
+        self._width: int = 150 if self.area_size == 'small' else 200
+        self._height: int = 150 if self.area_size == 'small' else 200
 
     max_steps: int = Field(default=100, gt=1)
     seed: int = 42
@@ -71,6 +73,7 @@ class CompleteConfig(BaseModel):
     fire: FireConfig = FireConfig()
     swarm: SwarmConfig = SwarmConfig()
 
+# TODO: use Singleton patter, dependency injection and perhaps context manager
 
 class Config:
     """Configuration loader for simulation"""

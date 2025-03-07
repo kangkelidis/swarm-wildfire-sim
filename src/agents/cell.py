@@ -19,7 +19,7 @@ class Cell(mesa.Agent):
 
     Holds information about vegetation, terrain, and fire status.
     """
-    def __init__(self, model: 'SimulationModel'):
+    def __init__(self, model: 'SimulationModel', is_road: bool = False):
         """Cell.
 
         Args:
@@ -32,6 +32,7 @@ class Cell(mesa.Agent):
         self.on_fire = False
         self.burnt = False
         self.burn_counter = 0
+        self.is_road = is_road
 
     def step(self):
         """Step function for the cell agent.

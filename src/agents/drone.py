@@ -1,188 +1,281 @@
-from enum import Enum
-from typing import TYPE_CHECKING, List, Optional, Set, Tuple
+# TODO: cleanup
+
+"""
+Drone agent class.
+"""
+
+from typing import TYPE_CHECKING
 
 import mesa
-import numpy as np
 
-from src.agents.cell import Cell
-from src.utils.logging_config import get_logger
+from src.utils.logging_config import DroneLogger, get_logger
 
 if TYPE_CHECKING:
     from src.simulation.simulation_model import SimulationModel
 
+
 logger = get_logger()
 
-
-class DroneRole(Enum):
-    """Defines the different roles a drone can take."""
-    SCOUT = "scout"       # Exploring the environment
-    CORDON = "cordon"     # Forming a cordon around fire
-
-
 class Drone(mesa.Agent):
-    """Drone agent for wildfire monitoring and response."""
+    """
+    Drone agent class.
 
-    def __init__(self, model: 'SimulationModel', pos: Tuple[int, int], base_pos: Tuple[int, int]):
-        """Initialize a new drone.
+    Attributes:
+        communication_range: int
+        desired_distance: int
+        neighbours: list[Drone]
+        neighbouring_leaders: NeighbouringLeaders
+        debug: bool
+        logger
+    """
+    def __init__(self, model: 'SimulationModel', base_pos: tuple[int, int]):
+        """
+        Initialise the drone agent.
 
         Args:
             model: The simulation model
-            pos: Initial position
-            base_pos: Position of the drone base
         """
         super().__init__(model)
         self.model: 'SimulationModel'
-
-        self.pos = pos
         self.base_pos = base_pos
-        self.role = DroneRole.SCOUT
+        self.communication_range = 15
+        self.desired_distance = 12
+        self.target_pos: tuple[int, int] = None
 
-        # Get configuration
-        self.battery_capacity = self.model.config.config.swarm.drone.battery_capacity
-        self.battery_level = self.battery_capacity
-        self.vision_range = int(self.model.config.config.swarm.drone.vision_range)
-        self.communication_range = int(self.model.config.config.swarm.drone.communication_range)
+        # initialise neighbours
+        self.neighbours = self.get_drones_in_range()
+        self.same_cell_drones = []
 
-        # For cordon formation
-        self.cordon_neighbours: Set[int] = set()  # IDs of neighbouring cordon drones
-        self.target_pos: Optional[Tuple[int, int]] = None
+        self.debug = False
+        self.drone_logger = DroneLogger(logger)
 
-    def step(self):
-        """Main step function for the drone."""
-        # Execute behaviour based on role
-        if self.role == DroneRole.SCOUT:
-            self.scout_behaviour()
-        elif self.role == DroneRole.CORDON:
-            self.cordon_behaviour()
+        self.color = 'blue'
 
-    def scout_behaviour(self):
-        """Implementing scouting behaviour with random walk."""
-        # Check for fires in vision range
-        if self._detect_fire():
-            self.role = DroneRole.CORDON
+    def set_up(self) -> None:
+        """
+        Post-init setup for the drone agent. To be called after the agent has been added to the
+        model and has a position.
+        Finds the leaders closest to desired_distance in each direction and forms links with them.
+        """
+        # update neighbours
+        self.neighbours = self.get_drones_in_range()
+        self.target_pos = (self.pos[0], self.pos[1])
+
+        if self.debug:
+            self.drone_logger.on = True
+
+    def step(self) -> None:
+        """
+        """
+        # monitor
+        self.neighbours = self.get_drones_in_range()
+
+        self.disperse()
+
+        self.move_towards(self.target_pos)
+
+    def get_drones_in_range(self) -> list['Drone']:
+        """
+        Get all drones in communication range. Excludes self.
+        Updates the same_cell_drones attribute with drones in the same cell as this drone.
+
+        :return: A list of drones in communication range
+        """
+        if not self.pos:
+            return []
+        neighbours = self.model.grid.get_neighbors(
+            pos=self.pos, moore=True, include_center=True, radius=self.communication_range
+        )
+        drones = [drone for drone in neighbours if isinstance(drone, Drone) and drone != self]
+        self.same_cell_drones = [drone for drone in drones if drone.pos == self.pos]
+        return drones
+
+    def get_dx(self, other: 'Drone') -> int:
+        """
+        Get the distance in the x-axis between this drone and another drone.
+        """
+        return int(abs(other.pos[0] - self.pos[0]))
+
+    def get_dy(self, other: 'Drone') -> int:
+        """
+        Get the distance in the y-axis between this drone and another drone.
+        """
+        return int(abs(other.pos[1] - self.pos[1]))
+
+    def is_out_of_bounds(self, target: tuple[int, int]) -> bool:
+        """
+        Check if the target position is out of bounds of the grid.
+
+        Args:
+            target: The target position to check
+        Returns:
+            True if the target is out of bounds, False otherwise
+        """
+        return self.model.grid.out_of_bounds(target)
+
+    def change_target(self, target: tuple[int, int]) -> None:
+        """
+        Change the target position of the drone.
+        If it is out of bounds the target is clamp to the grid edge.
+
+        Args:
+            target: The new target position
+        """
+        # move away from base and edges
+        x, y = target
+        if x <= 5:
+            x += 2
+        if x >= self.model.grid.width - 5:
+            x -= 2
+        if y <= 5:
+            y += 2
+        if y >= self.model.grid.height - 5:
+            y -= 2
+        self.target_pos = (x, y)
+
+        # if self.is_out_of_bounds(target):
+        #     x, y = target
+        #     x = max(1, min(x, self.model.grid.width - 2))
+        #     y = max(1, min(y, self.model.grid.height - 2))
+        #     self.target_pos = (x, y)
+        # else:
+        #     self.target_pos = target
+
+    def move_towards(self, target: tuple[int, int]) -> None:
+        """
+        Move the drone towards the target position. In each step, the drone moves one unit closer to
+        the target in each axis.
+
+        Must be in a 2D grid.
+
+        Args:
+            target: The target position to move towards
+        """
+        x, y = self.pos
+        dx, dy = target
+        if x < dx:
+            x += 1
+        elif x > dx:
+            x -= 1
+        if y < dy:
+            y += 1
+        elif y > dy:
+            y -= 1
+
+        self.drone_logger.debug(f"Moving towards {target}, at {x, y}")
+        self.model.grid.move_agent(self, (x, y))
+
+    def get_random_direction(self, including_center: bool) -> tuple[int, int]:
+        """
+        Get a random neighbouring cell in the grid.
+        """
+        cells = self.model.grid.get_neighborhood(self.pos, moore=True, include_center=including_center)
+        return self.random.choice(cells)
+
+    def disperse(self):
+        """
+        If there are more than two drones in the same cell, move one of them to a random neighbouring
+        cell.
+        """
+        if len(self.same_cell_drones) > 0:
+            self.color = "blue"
+            new_target = self.get_random_direction(including_center=False)
+            self.change_target(new_target)
+        else:
+            self.formation()
+
+    def random_walk(self):
+        """
+        Move the drone to a random neighbouring cell or stay.
+        """
+        new_target = self.get_random_direction(including_center=True)
+        self.change_target(new_target)
+
+    def nudge_to_align(self, closest_neighbour):
+        """
+        Nudge the drone to align with the axis if one of the axis is not aligned.
+        """
+        x, y = self.pos
+        neighbor_x, neighbor_y = closest_neighbour.pos
+        dx = self.get_dx(closest_neighbour)
+        dy = self.get_dy(closest_neighbour)
+
+        if dx == self.desired_distance:
+            if dy != 0:
+                y = neighbor_y
+                self.color = "yellow"
+                self.change_target((x, y))
+        elif dy == self.desired_distance:
+            if dx != 0:
+                x = neighbor_x
+                self.color = "yellow"
+                self.change_target((x, y))
+        else:
+            self.color = "purple"
+
+    # TODO: if one of the axis is not aligned, nudge the drone to align with the axis
+    def formation(self):
+        """
+        Handle formation behaviour for drones.
+        Find the closest neighbour, check the chebyshev distance and if it less than the desired
+        distance, move away to increase the distance by one, reduce by one otherwise.
+        """
+        if not self.neighbours:
+            self.random_walk()
+            self.color = "red"
             return
 
-        # Random walk
-        self.random_move()
+        # Find the closest neighbor
+        closest_neighbour = min(self.neighbours, key=lambda n: self.chebyshev_distance(n.pos))
+        current_distance = self.chebyshev_distance(closest_neighbour.pos)
 
-    def cordon_behaviour(self):
-        """Implementing cordoning behaviour to maintain position near fire front."""
-        # Find fire cells and non-fire cells within vision range
-        fire_cells, safe_cells = self._get_fire_and_safe_cells()
-
-        if not fire_cells:
-            # No more fire visible, go back to scouting
-            self.role = DroneRole.SCOUT
+        # Stay in place if already at desired distance
+        if current_distance == self.desired_distance:
+            self.color = "purple"
+            # self.nudge_to_align(closest_neighbour)
             return
 
-        # Find position at the edge of the fire (one cell away from fire)
-        self.position_at_fire_edge(fire_cells, safe_cells)
+        self.color = "blue"
+        # Calculate direction (move away if too close, move closer if too far)
+        x, y = self.pos
+        neighbor_x, neighbor_y = closest_neighbour.pos
 
-    def _detect_fire(self) -> bool:
-        """Check if there is a fire within the drone's vision range.
+        if current_distance < self.desired_distance:
+            # increase chebyshev distance by one
+            if x < neighbor_x:
+                x -= 1
+            elif x > neighbor_x:
+                x += 1
+            if y < neighbor_y:
+                y -= 1
+            elif y > neighbor_y:
+                y += 1
+            self.change_target((x, y))
+        elif current_distance > self.desired_distance:
+            # decrease chebyshev distance by one
+            if x < neighbor_x:
+                x += 1
+            elif x > neighbor_x:
+                x -= 1
+            if y < neighbor_y:
+                y += 1
+            elif y > neighbor_y:
+                y -= 1
+            self.change_target((x, y))
 
-        Returns:
-            True if fire is detected, False otherwise
+    def chebyshev_distance(self, target: tuple[int, int]) -> int:
         """
-        neighbours = self.model.grid.get_neighbors(
-            self.pos, moore=True, radius=self.vision_range
-        )
+        Calculate the Chebyshev distance between the drone and a target position.
 
-        # Check for fires
-        for neighbour in neighbours:
-            if isinstance(neighbour, Cell) and neighbour.on_fire:
-                return True
-
-        return False
-
-    def _get_fire_and_safe_cells(self) -> Tuple[List[Cell], List[Cell]]:
-        """Get lists of fire cells and safe cells within vision range.
-
-        Returns:
-            Tuple of (fire_cells, safe_cells)
-        """
-        neighbours = self.model.grid.get_neighbors(
-            self.pos, moore=True, radius=self.vision_range
-        )
-
-        fire_cells = []
-        safe_cells = []
-
-        for neighbour in neighbours:
-            if isinstance(neighbour, Cell):
-                if neighbour.on_fire:
-                    fire_cells.append(neighbour)
-                elif not neighbour.burnt:
-                    safe_cells.append(neighbour)
-
-        return fire_cells, safe_cells
-
-    def position_at_fire_edge(self, fire_cells: List[Cell], safe_cells: List[Cell]) -> None:
-        """Find the optimal position at the edge of the fire.
+        Known as chessboard distance, the minimum number of moves a king must take to reach the target.
+        The distance between two points is the greatest of their differences along any coordinate dimension.
 
         Args:
-            fire_cells: List of cells that are on fire
-            safe_cells: List of cells that are safe
-        """
-        # Simple algorithm: find a safe cell that's adjacent to a fire cell
-        edge_positions = []
-
-        for safe_cell in safe_cells:
-            # Check if this safe cell is adjacent to any fire cell
-            is_edge = False
-            safe_neighbours = self.model.grid.get_neighbors(
-                safe_cell.pos, moore=True, radius=1
-            )
-
-            for neighbour in safe_neighbours:
-                if isinstance(neighbour, Cell) and neighbour.on_fire:
-                    is_edge = True
-                    break
-
-            if is_edge:
-                edge_positions.append(safe_cell.pos)
-
-        if edge_positions:
-            # Move to the closest edge position
-            target_pos = min(edge_positions, key=lambda p: self._distance(p, self.pos))
-            self.move_toward(target_pos)
-
-    def random_move(self) -> None:
-        """Move randomly to an adjacent cell."""
-        possible_steps = self.model.grid.get_neighborhood(
-            self.pos, moore=True, include_center=False
-        )
-
-        if possible_steps:
-            new_position = self.model.random.choice(possible_steps)
-            self.model.grid.move_agent(self, new_position)
-
-    def move_toward(self, target_pos: Tuple[int, int]) -> None:
-        """Move one step towards the target position.
-
-        Args:
-            target_pos: Position to move towards
-        """
-        # Get possible moves (adjacent cells)
-        possible_steps = self.model.grid.get_neighborhood(
-            self.pos, moore=True, include_center=False
-        )
-
-        if not possible_steps:
-            return  # No valid moves
-
-        # Find the step that gets us closest to the target
-        new_pos = min(possible_steps, key=lambda pos: self._distance(pos, target_pos))
-        self.model.grid.move_agent(self, new_pos)
-
-    def _distance(self, pos1: Tuple[int, int], pos2: Tuple[int, int]) -> float:
-        """Calculate Euclidean distance between two positions.
-
-        Args:
-            pos1: First position
-            pos2: Second position
-
+            target: The target position
         Returns:
-            Euclidean distance
+            The Chebyshev distance
         """
-        return ((pos1[0] - pos2[0]) ** 2 + (pos1[1] - pos2[1]) ** 2) ** 0.5
+        return max(abs(self.pos[0] - target[0]), abs(self.pos[1] - target[1]))
+
+    def __repr__(self):
+        return f"Drone {self.unique_id}, at {self.pos}"

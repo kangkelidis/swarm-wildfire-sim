@@ -43,3 +43,13 @@ def get_logger(module_name: str = None):
 
 # Export logger for direct import
 log = logger
+
+
+class DroneLogger():
+    def __init__(self, logger):
+        self.on = False
+        self.logger = logger
+
+    def debug(self, message):
+        if self.on:
+            self.logger.debug(message)

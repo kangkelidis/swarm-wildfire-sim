@@ -1,5 +1,5 @@
 simulation:
-  area_size: 'small'
+  area_size: 'large'
   max_steps: 100
   seed: 42
   save_data: true
@@ -13,9 +13,10 @@ swarm:
   initial_bases: 1
 
   drone_base:
-    number_of_agents: 10
+    number_of_agents: 50
 
   drone:
-    battery_capacity: 100
-    communication_range: 10
+    battery_capacity: 70
+    battery_consumption_per_cell: 1
+    communication_range: 15
     vision_range: 5

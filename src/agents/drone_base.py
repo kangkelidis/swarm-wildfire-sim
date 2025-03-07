@@ -14,25 +14,32 @@ logger = get_logger()
 class DroneBase(mesa.Agent):
     """Base station for drone deployment and recharging."""
 
-    def __init__(self, model: 'SimulationModel', N):
-        """Drone base.
+    def __init__(self, model: 'SimulationModel', pos):
+        """Initialize a drone base.
 
         Args:
             model: The simulation model
             pos: Position of the base
         """
         super().__init__(model)
+        self.pos = pos
         self.drones: List[Drone] = []
 
         # Get configuration
-        self.num_drones = N
+        self.num_drones = self.model.config.config.swarm.drone_base.number_of_agents
 
-    def deploy_drones(self):
+        # Deploy drones
+        self._deploy_drones()
+
+    def _deploy_drones(self):
         """Deploy drones from the base."""
         for i in range(self.num_drones):
-            drone = Drone(self.model, self.pos)
+            drone = Drone(self.model, self.pos, self.pos)
             self.model.grid.place_agent(drone, self.pos)
             self.drones.append(drone)
+
+            # Move drone to a random position around the base to avoid overlap
+            drone.random_move()
 
     def step(self):
         """Base station step function."""

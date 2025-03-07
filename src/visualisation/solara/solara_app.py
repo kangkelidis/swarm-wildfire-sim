@@ -37,7 +37,10 @@ def main():
 
     # Define model parameters for UI controls (if needed)
     model_params = {
-        # "parameter_name": {"type": "SliderInt", "value": 10, "min": 1, "max": 100},
+        "N": {
+            "label": "Number of agents per base",
+            "type": "InputText",
+            "value": config.config.swarm.drone_base.number_of_agents},
     }
 
     # Create Solara visualization

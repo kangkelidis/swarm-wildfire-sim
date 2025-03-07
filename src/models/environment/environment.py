@@ -44,6 +44,12 @@ class GridEnvironment(mesa.space.MultiGrid):
         # create cells
         for x in range(width):
             for y in range(height):
+                if y < 5:
+                    continue
+                if (height // 2 - 1 < y < height // 2 + 1) or (width // 2 - 1 < x < width // 2 + 1):
+                    cell = Cell(model, is_road=True)
+                    self.place_agent(cell, (x, y))
+                    continue
                 cell = Cell(model)
                 self.place_agent(cell, (x, y))
 

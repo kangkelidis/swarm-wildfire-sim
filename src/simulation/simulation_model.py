@@ -1,8 +1,11 @@
 from typing import TYPE_CHECKING
 
 import mesa
+import mesa.agent
 
 from src.agents.base import DroneBase
+from src.agents.cell import Cell
+from src.agents.drone import Drone
 from src.models.environment.environment import (GridEnvironment,
                                                 HexEnvironment,
                                                 SpaceEnvironment)
@@ -11,8 +14,7 @@ from src.utils.config import Config
 from src.utils.logging_config import get_logger
 
 if TYPE_CHECKING:
-    from src.agents.cell import Cell
-
+    pass
 # Get logger for this module
 logger = get_logger()
 
@@ -24,7 +26,7 @@ class SimulationModel(mesa.Model):
     This model integrates environmental conditions, fire spread mechanics,
     and a swarm of autonomous drones for monitoring the wildfire.
     """
-    def __init__(self, config: Config = None):
+    def __init__(self, config: Config = None, **kwargs):
         """
         Initialise the wildfire simulation model using a config object.
 
@@ -44,22 +46,42 @@ class SimulationModel(mesa.Model):
                                     width=self.config.get("simulation._width", 100),
                                     height=self.config.get("simulation._height", 100))
 
-        # set a random cell on fire
-        cells: list['Cell'] = self.random.choices(self.grid.agents, k=1)
-        for cell in cells:
-            cell.on_fire = True
+        # # set a random cell on fire
+        # cells: list['Cell'] = self.random.choices(self.grid.agents, k=1)
+        # for cell in cells:
+        #     cell.on_fire = True
 
+        self.N = int(kwargs.get("N", self.config.get("swarm.drone_base.number_of_agents", 1)))
         # Initialise bases
         for _ in range(self.config.get("swarm.initial_bases", 1)):
-            self.grid.place_agent(DroneBase(self, (100, 100)), (100, 100))
+            base = DroneBase(self, self.N)
+            self.grid.place_agent(base, (100, 2))
+            base.deploy_drones()
+
+        base = DroneBase(self, self.N)
+        self.grid.place_agent(base, (100, 102))
+        base.deploy_drones()
+
+        self._init_agentsets()
+
+        # Set debug flag for a random drone
+        drone = self.random.choice(self.drones)
+        drone.debug = True
+        self.drones.do("set_up")
+
+    def _init_agentsets(self):
+        self.cells: mesa.agent.AgentSet = self.agents_by_type.get(Cell, [])
+        self.drones: mesa.agent.AgentSet = self.agents_by_type.get(Drone, [])
+        self.bases: mesa.agent.AgentSet = self.agents_by_type.get(DroneBase, [])
 
     def step(self):
         """
         Execute one step of the simulation.
-
-        This advances all agents by one step and updates the environment.
         """
-        self.agents.shuffle_do("step")
+        # self.cells.shuffle_do("step")
+
+        self.drones.shuffle_do("step")
+        # self.agents.shuffle_do("step")
 
     def run(self):
         """
