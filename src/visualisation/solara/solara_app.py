@@ -12,6 +12,7 @@ from mesa.visualization import SolaraViz, make_space_component
 from src.simulation.simulation_model import SimulationModel
 from src.utils.config import Config
 from src.utils.logging_config import get_logger
+from src.visualisation.solara.components import RuntimeControls
 from src.visualisation.solara.custom_elements import agent_portrayal
 
 logger = get_logger()
@@ -41,14 +42,19 @@ def main():
             "label": "Number of agents per base",
             "type": "InputText",
             "value": config.config.swarm.drone_base.number_of_agents},
+        "initial_bases": {
+            "label": "Number of bases",
+            "type": "InputText",
+            "value": config.config.swarm.initial_bases},
     }
 
     # Create Solara visualization
     page = SolaraViz(
         model,
-        components=[SpaceGraph],
+        components=[SpaceGraph, RuntimeControls],
         model_params=model_params,
         name="Wildfire Simulation",
+        play_interval=1,
     )
 
     # If output-gif was specified, save the visualization

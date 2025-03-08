@@ -46,21 +46,16 @@ class SimulationModel(mesa.Model):
                                     width=self.config.get("simulation._width", 100),
                                     height=self.config.get("simulation._height", 100))
 
-        # # set a random cell on fire
-        # cells: list['Cell'] = self.random.choices(self.grid.agents, k=1)
-        # for cell in cells:
-        #     cell.on_fire = True
-
         self.N = int(kwargs.get("N", self.config.get("swarm.drone_base.number_of_agents", 1)))
-        # Initialise bases
-        for _ in range(self.config.get("swarm.initial_bases", 1)):
-            base = DroneBase(self, self.N)
-            self.grid.place_agent(base, (100, 2))
-            base.deploy_drones()
+        self.num_of_bases = int(kwargs.get("initial_bases", self.config.get("swarm.initial_bases", 1)))
 
-        base = DroneBase(self, self.N)
-        self.grid.place_agent(base, (100, 102))
-        base.deploy_drones()
+        # Initialise bases
+        for _ in range(self.num_of_bases):
+            x = self.random.randint(2, self.grid.width - 2)
+            y = self.random.choice([2, self.grid.height // 2, self.grid.height - 3])
+            base = DroneBase(self, self.N)
+            self.grid.place_agent(base, (x, y))
+            base.deploy_drones()
 
         self._init_agentsets()
 
@@ -78,7 +73,7 @@ class SimulationModel(mesa.Model):
         """
         Execute one step of the simulation.
         """
-        # self.cells.shuffle_do("step")
+        self.cells.shuffle_do("step")
 
         self.drones.shuffle_do("step")
         # self.agents.shuffle_do("step")
@@ -93,3 +88,39 @@ class SimulationModel(mesa.Model):
             self.step()
             if not self.running:
                 break
+
+    def start_fire(self, num_fires=1, position=None):
+        """
+        Start fires in the simulation.
+
+        Args:
+            num_fires: Number of random fires to start
+            position: Optional (x,y) tuple to start fire at specific location
+        """
+        if position:
+            # Get cell at specific position
+            cell_contents = self.grid.get_cell_list_contents([position])
+            cells = [agent for agent in cell_contents if isinstance(agent, Cell)]
+            if cells:
+                cells[0].on_fire = True
+                logger.info(f"Started fire at position {position}")
+        else:
+            # Start random fires
+            available_cells = [agent for agent in self.cells if not agent.on_fire]
+            if available_cells:
+                cells_to_ignite = self.random.sample(available_cells, min(num_fires, len(available_cells)))
+                for cell in cells_to_ignite:
+                    cell.on_fire = True
+                    logger.info(f"Started fire at position {cell.pos}")
+
+    def add_base(self):
+        """
+        Add a new base to the simulation.
+        """
+        x = self.random.randint(2, self.grid.width - 2)
+        y = self.random.randint(2, self.grid.height - 2)
+        base = DroneBase(self, self.N)
+        self.grid.place_agent(base, (x, y))
+        base.deploy_drones()
+        self.bases.add(base)
+        logger.info(f"Added base at position {base.pos}")

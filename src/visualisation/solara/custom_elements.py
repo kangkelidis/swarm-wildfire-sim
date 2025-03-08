@@ -32,8 +32,8 @@ def cell_portrayal(agent: Cell):
 
 def drone_base_portrayal(agent):
     return {
-        "marker": "^",
-        "color": "blue",
+        "marker": "H",
+        "color": "grey",
         "size": 200,
         "zorder": 2,
     }
@@ -51,7 +51,7 @@ def drone_portrayal(drone: Drone):
         return {
             "marker": "o",
             "color": "orange",
-            "size": 2,
+            "size": 20,
             "zorder": 15,
         }
 

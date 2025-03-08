@@ -9,9 +9,10 @@ if TYPE_CHECKING:
 
 class FuelLevel(Enum):
     """Fuel levels for cell."""
-    LOW = 0
-    MEDIUM = 1
-    HIGH = 2
+    EMPTY = 0
+    LOW = 1
+    MEDIUM = 2
+    HIGH = 3
 
 
 class Cell(mesa.Agent):
@@ -28,7 +29,17 @@ class Cell(mesa.Agent):
         self.model: 'SimulationModel'
         super().__init__(model)
 
-        self.fuel_level = model.random.choice(list(FuelLevel))
+        # Use a weighted random selection
+        r = model.random.random()
+        if r < 0.01:
+            self.fuel_level = FuelLevel.EMPTY
+        elif r < 0.3:
+            self.fuel_level = FuelLevel.LOW
+        elif r < 0.70:
+            self.fuel_level = FuelLevel.MEDIUM
+        else:
+            self.fuel_level = FuelLevel.HIGH
+
         self.on_fire = False
         self.burnt = False
         self.burn_counter = 0

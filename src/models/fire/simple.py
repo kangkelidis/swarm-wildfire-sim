@@ -24,6 +24,7 @@ class SimpleFireModel:
         # Base probabilities for fire spread based on fuel level
         # 678
         self.base_probabilities = {
+            FuelLevel.EMPTY: 1,
             FuelLevel.LOW: 0.45,
             FuelLevel.MEDIUM: 0.55,
             FuelLevel.HIGH: 0.65,
@@ -31,6 +32,7 @@ class SimpleFireModel:
 
         # Burn time depends on fuel level
         self.burn_times = {
+            FuelLevel.EMPTY: 0,
             FuelLevel.LOW: 1,
             FuelLevel.MEDIUM: 3,
             FuelLevel.HIGH: 4,

@@ -1,5 +1,3 @@
-# TODO: cleanup
-
 """
 Drone agent class.
 """
@@ -16,17 +14,13 @@ if TYPE_CHECKING:
 
 logger = get_logger()
 
+
 class Drone(mesa.Agent):
     """
     Drone agent class.
 
     Attributes:
-        communication_range: int
-        desired_distance: int
-        neighbours: list[Drone]
-        neighbouring_leaders: NeighbouringLeaders
-        debug: bool
-        logger
+
     """
     def __init__(self, model: 'SimulationModel', base_pos: tuple[int, int]):
         """
@@ -34,12 +28,13 @@ class Drone(mesa.Agent):
 
         Args:
             model: The simulation model
+            base_pos: The position of the base station the drone is deployed from
         """
         super().__init__(model)
         self.model: 'SimulationModel'
         self.base_pos = base_pos
-        self.communication_range = 15
-        self.desired_distance = 12
+        self.communication_range = int(model.config.config.swarm.drone.communication_range)
+        self.desired_distance = int(self.communication_range * 0.9)
         self.target_pos: tuple[int, int] = None
 
         # initialise neighbours
@@ -55,7 +50,6 @@ class Drone(mesa.Agent):
         """
         Post-init setup for the drone agent. To be called after the agent has been added to the
         model and has a position.
-        Finds the leaders closest to desired_distance in each direction and forms links with them.
         """
         # update neighbours
         self.neighbours = self.get_drones_in_range()
@@ -92,31 +86,20 @@ class Drone(mesa.Agent):
 
     def get_dx(self, other: 'Drone') -> int:
         """
-        Get the distance in the x-axis between this drone and another drone.
+        Get the absolute distance in the x-axis between this drone and another drone.
         """
         return int(abs(other.pos[0] - self.pos[0]))
 
     def get_dy(self, other: 'Drone') -> int:
         """
-        Get the distance in the y-axis between this drone and another drone.
+        Get the absolute distance in the y-axis between this drone and another drone.
         """
         return int(abs(other.pos[1] - self.pos[1]))
-
-    def is_out_of_bounds(self, target: tuple[int, int]) -> bool:
-        """
-        Check if the target position is out of bounds of the grid.
-
-        Args:
-            target: The target position to check
-        Returns:
-            True if the target is out of bounds, False otherwise
-        """
-        return self.model.grid.out_of_bounds(target)
 
     def change_target(self, target: tuple[int, int]) -> None:
         """
         Change the target position of the drone.
-        If it is out of bounds the target is clamp to the grid edge.
+        If it is out of bounds the target move towards the center of the grid.
 
         Args:
             target: The new target position
@@ -132,14 +115,6 @@ class Drone(mesa.Agent):
         if y >= self.model.grid.height - 5:
             y -= 2
         self.target_pos = (x, y)
-
-        # if self.is_out_of_bounds(target):
-        #     x, y = target
-        #     x = max(1, min(x, self.model.grid.width - 2))
-        #     y = max(1, min(y, self.model.grid.height - 2))
-        #     self.target_pos = (x, y)
-        # else:
-        #     self.target_pos = target
 
     def move_towards(self, target: tuple[int, int]) -> None:
         """
@@ -183,6 +158,7 @@ class Drone(mesa.Agent):
             self.change_target(new_target)
         else:
             self.formation()
+            # self.strict_formation()
 
     def random_walk(self):
         """
@@ -213,7 +189,73 @@ class Drone(mesa.Agent):
         else:
             self.color = "purple"
 
-    # TODO: if one of the axis is not aligned, nudge the drone to align with the axis
+    def strict_formation(self):
+        if not self.neighbours:
+            self.random_walk()
+            self.color = "red"
+            return
+
+        # Find the closest neighbor
+        closest_neighbour = min(self.neighbours, key=lambda n: self.chebyshev_distance(n.pos))
+        current_distance = self.chebyshev_distance(closest_neighbour.pos)
+        dx = self.get_dx(closest_neighbour)
+        dy = self.get_dy(closest_neighbour)
+        axis_to_align = 'x' if dx < dy else 'y'
+
+        # Stay in place if already at desired distance and aligned
+        if current_distance == self.desired_distance and (dx == 0 or dy == 0):
+            self.color = "purple"
+            return
+
+        self.color = "blue"
+        # Calculate direction (move away if too close, move closer if too far)
+        x, y = self.pos
+        neighbor_x, neighbor_y = closest_neighbour.pos
+
+        if current_distance < self.desired_distance:
+            # align on an axis and increase chebyshev distance on the other
+            if axis_to_align == 'x':
+                if x < neighbor_x:
+                    x += 1
+                elif x > neighbor_x:
+                    x -= 1
+                if y < neighbor_y:
+                    y -= 1
+                elif y > neighbor_y:
+                    y += 1
+                self.change_target((x, y))
+            else:
+                if x < neighbor_x:
+                    x -= 1
+                elif x > neighbor_x:
+                    x += 1
+                if y < neighbor_y:
+                    y += 1
+                elif y > neighbor_y:
+                    y -= 1
+                self.change_target((x, y))
+        elif current_distance > self.desired_distance:
+            if axis_to_align == 'x':
+                if x < neighbor_x:
+                    x += 1
+                elif x > neighbor_x:
+                    x -= 1
+                if y < neighbor_y:
+                    y += 1
+                elif y > neighbor_y:
+                    y -= 1
+                self.change_target((x, y))
+            else:
+                if x < neighbor_x:
+                    x += 1
+                elif x > neighbor_x:
+                    x -= 1
+                if y < neighbor_y:
+                    y += 1
+                elif y > neighbor_y:
+                    y -= 1
+                self.change_target((x, y))
+
     def formation(self):
         """
         Handle formation behaviour for drones.

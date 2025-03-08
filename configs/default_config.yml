@@ -10,7 +10,7 @@ fire:
   model: 'simple'
 
 swarm:
-  initial_bases: 1
+  initial_bases: 2
 
   drone_base:
     number_of_agents: 50
