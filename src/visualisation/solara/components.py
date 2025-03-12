@@ -16,7 +16,7 @@ def RuntimeControls(model):
         """Add a new base to the simulation."""
         model.add_base()
 
-    with solara.Card("Runtime Controls"):
+    with solara.Card("Runtime Controls", style={"width": "fit-content"}):
         with solara.Column():
             with solara.Row():
                 solara.Button(
@@ -32,9 +32,3 @@ def RuntimeControls(model):
                     outlined=True,
                     on_click=add_base
                 )
-
-            solara.InputInt(
-                label="Number of fires",
-                value=fire_count,
-                on_value=set_fire_count
-            )

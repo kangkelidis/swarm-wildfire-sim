@@ -11,7 +11,7 @@ setup(
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "swarm-wildfire-sim=src.main:main",
+            "swarm-sim=src.main:main",
         ],
     },
 )

@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import yaml
 
-from src.utils.config import (Config, ConfigError, ConfigFileNotFoundError,
-                              ConfigParsingError)
+from src.utils.config_loader import (ConfigError, ConfigFileNotFoundError,
+                              ConfigLoader, ConfigParsingError)
 
 
 class TestConfig(unittest.TestCase):
@@ -16,7 +16,7 @@ class TestConfig(unittest.TestCase):
 
     def test_default_config(self):
         """Test that default configuration is created when no path is provided"""
-        config = Config()  # Should look for default config but fallback to hardcoded defaults
+        config = ConfigLoader()  # Should look for default config but fallback to hardcoded defaults
         self.assertIsNotNone(config.config)
         # Check various default values
         self.assertEqual(config.config.simulation.area_size, 'small')
@@ -28,19 +28,19 @@ class TestConfig(unittest.TestCase):
         with patch('pathlib.Path.exists') as mock_exists:
             # First test when default exists
             mock_exists.return_value = True
-            config = Config()
+            config = ConfigLoader()
             self.assertIsNotNone(config._find_default_config())
 
             # Then test when no default exists
             mock_exists.return_value = False
-            config = Config()
+            config = ConfigLoader()
             self.assertIsNone(config._find_default_config())
 
     def test_nonexistent_file_raises_error(self):
         """Test that specifying a non-existent file raises an error"""
         # Try to load from a file that doesn't exist
         with self.assertRaises(ConfigFileNotFoundError):
-            Config("/path/to/nonexistent/file.yml")
+            ConfigLoader("/path/to/nonexistent/file.yml")
 
     def test_config_loading(self):
         """Test loading configuration from YAML file"""
@@ -73,7 +73,7 @@ class TestConfig(unittest.TestCase):
             yaml.dump(config_data, f)
 
         # Load the config
-        config = Config(yaml_path)
+        config = ConfigLoader(yaml_path)
 
         # Check if values are loaded correctly
         self.assertEqual(config.config.simulation.area_size, 'large')
@@ -106,7 +106,7 @@ class TestConfig(unittest.TestCase):
             yaml.dump(config_data, f)
 
         # Load the config
-        config = Config(yaml_path)
+        config = ConfigLoader(yaml_path)
 
         # Check that fire section was updated but others use defaults
         self.assertEqual(config.config.fire.initial_fires, 5)
@@ -127,7 +127,7 @@ class TestConfig(unittest.TestCase):
             yaml.dump(config_data, f)
 
         with self.assertRaises(ConfigError):
-            Config(yaml_path)
+            ConfigLoader(yaml_path)
 
     def test_invalid_yaml(self):
         """Test handling of invalid YAML syntax"""
@@ -138,7 +138,7 @@ class TestConfig(unittest.TestCase):
 
         # Check that proper exception is raised
         with self.assertRaises(ConfigParsingError):
-            Config(yaml_path)
+            ConfigLoader(yaml_path)
 
     def test_empty_yaml(self):
         """Test loading an empty YAML file"""
@@ -148,7 +148,7 @@ class TestConfig(unittest.TestCase):
             pass  # Empty file
 
         # Load the config
-        config = Config(yaml_path)
+        config = ConfigLoader(yaml_path)
 
         # Should use default values
         self.assertEqual(config.config.simulation.area_size, 'small')
@@ -165,7 +165,7 @@ class TestConfig(unittest.TestCase):
         with patch('builtins.open', side_effect=Exception("Test exception")):
             # Check that proper exception is raised
             with self.assertRaises(ConfigError):
-                Config(yaml_path)
+                ConfigLoader(yaml_path)
 
     def test_drone_configuration(self):
         """Test the drone configuration settings"""
@@ -184,7 +184,7 @@ class TestConfig(unittest.TestCase):
             yaml.dump(config_data, f)
 
         # Load the config
-        config = Config(yaml_path)
+        config = ConfigLoader(yaml_path)
 
         # Check the drone settings
         self.assertEqual(config.config.swarm.drone.battery_capacity, 250)
@@ -205,7 +205,7 @@ class TestConfig(unittest.TestCase):
             yaml.dump(config_data, f)
 
         with self.assertRaises(ConfigError):
-            Config(yaml_path)
+            ConfigLoader(yaml_path)
 
         # Test invalid type
         config_data = {
@@ -218,7 +218,7 @@ class TestConfig(unittest.TestCase):
             yaml.dump(config_data, f)
 
         with self.assertRaises(ConfigError):
-            Config(yaml_path)
+            ConfigLoader(yaml_path)
 
         # Test negative drone battery capacity
         config_data = {
@@ -233,11 +233,11 @@ class TestConfig(unittest.TestCase):
             yaml.dump(config_data, f)
 
         with self.assertRaises(ConfigError):
-            Config(yaml_path)
+            ConfigLoader(yaml_path)
 
     def test_config_accessor_methods(self):
         """Test the API methods for accessing configuration values"""
-        config = Config()
+        config = ConfigLoader()
 
         # Test attribute access style
         self.assertEqual(config.config.simulation.area_size, 'small')
@@ -269,7 +269,7 @@ class TestConfig(unittest.TestCase):
             f.write(yaml_content)
 
         # Load the config
-        config = Config(yaml_path)
+        config = ConfigLoader(yaml_path)
 
         # Verify settings were properly loaded
         self.assertEqual(config.config.simulation.area_size, 'large')
@@ -289,7 +289,7 @@ class TestConfig(unittest.TestCase):
         with open(yaml_path, "w") as f:
             yaml.dump(config_data, f)
 
-        c = Config(yaml_path)
+        c = ConfigLoader(yaml_path)
         self.assertNotIn("unknown_field", vars(c.config.simulation))
 
 

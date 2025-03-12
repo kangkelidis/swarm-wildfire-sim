@@ -50,7 +50,9 @@ class FireConfig(BaseModel):
 
 class DroneConfig(BaseModel):
     """Configuration for individual drone agents"""
-    battery_capacity: int = Field(gt=0, default=100)
+    battery_capacity: float = Field(gt=0, default=100.0)
+    battery_consumption_per_cell: int = Field(gt=0, default=1)
+    battery_recharge_rate: int = Field(gt=0, default=5)
     communication_range: float = Field(ge=0, default=10)
     vision_range: float = Field(ge=0, default=5)
 
@@ -67,15 +69,35 @@ class SwarmConfig(BaseModel):
     drone: DroneConfig = DroneConfig()
 
 
-class CompleteConfig(BaseModel):
+class Config(BaseModel):
     """Complete configuration combining all sections and default values"""
     simulation: SimulationConfig = SimulationConfig()
     fire: FireConfig = FireConfig()
     swarm: SwarmConfig = SwarmConfig()
 
+    def get(self, path: str, default: Any = None) -> Any:
+        """
+        Get a configuration value using dot notation.
+
+        Args:
+            path: Path to the configuration value (e.g., 'simulation.max_steps')
+            default: Default value to return if the path doesn't exist
+
+        Returns:
+            The configuration value or the default
+        """
+        current = self
+        for part in path.split('.'):
+            if hasattr(current, part):
+                current = getattr(current, part)
+            else:
+                return default
+        return current
+
 # TODO: use Singleton patter, dependency injection and perhaps context manager
 
-class Config:
+
+class ConfigLoader:
     """Configuration loader for simulation"""
 
     def __init__(self, config_path: Optional[str] = None):
@@ -108,10 +130,10 @@ class Config:
         logger.info("No default config file found")
         return None
 
-    def _load_config(self) -> CompleteConfig:
+    def _load_config(self) -> Config:
         """Load and parse configuration from file or use defaults"""
         # Start with default config
-        config = CompleteConfig()
+        config = Config()
 
         # If no config path was found, keep default config
         if not self.config_path:
@@ -134,7 +156,7 @@ class Config:
                 return config
 
             # Create new config with loaded values
-            loaded_config = CompleteConfig(**yaml_data)
+            loaded_config = Config(**yaml_data)
             logger.success(f"Configuration loaded successfully from {self.config_path}")
             return loaded_config
 
@@ -147,21 +169,3 @@ class Config:
             logger.error(msg)
             raise ConfigError(msg) from e
 
-    def get(self, path: str, default: Any = None) -> Any:
-        """
-        Get a configuration value using dot notation.
-
-        Args:
-            path: Path to the configuration value (e.g., 'simulation.max_steps')
-            default: Default value to return if the path doesn't exist
-
-        Returns:
-            The configuration value or the default
-        """
-        current = self.config
-        for part in path.split('.'):
-            if hasattr(current, part):
-                current = getattr(current, part)
-            else:
-                return default
-        return current

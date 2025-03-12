@@ -40,50 +40,37 @@ def drone_base_portrayal(agent):
 
 
 def drone_portrayal(drone: Drone):
-    # if agent.role == DroneRole.CORDON:
-    #     return {
-    #         "marker": "o",
-    #         "color": "purple",
-    #         "size": 150,
-    #         "zorder": 5,
-    #     }
+    marker = "o"
+    color = "black"
+    size = 10
+    zorder = 10
+
+    if drone.role.value == "leader":
+        color = "blue"
+    elif drone.role.value == "scout":
+        color = "orange"
+
+    if drone.state_machine.current_state.name == "Dispersing":
+        color = 'yellow'
+
+    elif drone.state_machine.current_state.name == "Loitering":
+        marker = "s"
+        color = "#002094"  # Dark blue
+        size *= 2
+
+    elif drone.state_machine.current_state.name == "Return_to_base":
+        marker = 'x'
+        color = 'black'
+
     if drone.debug:
-        return {
-            "marker": "o",
-            "color": "orange",
-            "size": 20,
-            "zorder": 15,
-        }
-
-    if hasattr(drone, 'weak_link') and drone.weak_link:
-        return {
-            "marker": "o",
-            "color": "pink",
-            "size": 2,
-            "zorder": 15,
-        }
-
-    if hasattr(drone, 'in_crystal') and drone.in_crystal:
-        return {
-            "marker": "o",
-            "color": drone.in_crystal,
-            "size": 20,
-            "zorder": 15,
-        }
-
-    if hasattr(drone, 'color') and drone.color:
-        return {
-            "marker": "o",
-            "color": drone.color,
-            "size": 5,
-            "zorder": 15,
-        }
+        marker = "^"
+        size = 100
 
     return {
-        "marker": ".",
-        "color": "blue",
-        "size": 5,
-        "zorder": 10,
+        "marker": marker,
+        "color": color,
+        "size": size,
+        "zorder": zorder,
     }
 
 

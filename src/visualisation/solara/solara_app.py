@@ -1,7 +1,8 @@
-import argparse
 import os
 import sys
 from pathlib import Path
+
+import solara
 
 project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
@@ -10,14 +11,14 @@ import matplotlib.pyplot as plt
 from mesa.visualization import SolaraViz, make_space_component
 
 from src.simulation.simulation_model import SimulationModel
-from src.utils.config import Config
+from src.utils.config_loader import ConfigLoader
 from src.utils.logging_config import get_logger
 from src.visualisation.solara.components import RuntimeControls
 from src.visualisation.solara.custom_elements import agent_portrayal
 
 logger = get_logger()
 
-plt.rcParams["figure.figsize"] = (10, 10)
+plt.rcParams["figure.figsize"] = (15, 15)
 
 
 def main():
@@ -28,7 +29,7 @@ def main():
     output_gif = os.environ.get("WILDFIRE_OUTPUT_GIF")
 
     # Initialise config and model
-    config = Config(config_path)
+    config = ConfigLoader(config_path)
     model = SimulationModel(config)
 
     # Create visualization components
@@ -38,7 +39,7 @@ def main():
 
     # Define model parameters for UI controls (if needed)
     model_params = {
-        "N": {
+        "num_of_agents": {
             "label": "Number of agents per base",
             "type": "InputText",
             "value": config.config.swarm.drone_base.number_of_agents},

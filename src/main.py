@@ -8,7 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.simulation.simulation_model import SimulationModel
-from src.utils.config import Config
+from src.utils.config_loader import ConfigLoader
 
 
 def main():
@@ -52,7 +52,7 @@ def main():
             # Run normally
             subprocess.run(command, env=env)
     else:
-        config = Config(args.config)
+        config = ConfigLoader(args.config)
         model = SimulationModel(config)
         model.run()
 

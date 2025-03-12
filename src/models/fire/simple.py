@@ -18,8 +18,8 @@ class SimpleFireModel:
         self.model = model
 
         # Get grid dimensions
-        self.width = model.config.config.simulation._width
-        self.height = model.config.config.simulation._height
+        self.width = model.config.simulation._width
+        self.height = model.config.simulation._height
 
         # Base probabilities for fire spread based on fuel level
         # 678
@@ -56,6 +56,3 @@ class SimpleFireModel:
 
         neighbours = self.model.grid.get_neighbors(pos=cell.pos, moore=True, radius=1)
         neighbours: List[Cell] = [n for n in neighbours if isinstance(n, Cell) and not n.burnt and not n.on_fire]
-        for neighbour in neighbours:
-            if self.model.random.random() < self.base_probabilities[neighbour.fuel_level]:
-                neighbour.on_fire = True

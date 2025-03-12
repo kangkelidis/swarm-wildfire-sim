@@ -39,10 +39,10 @@ class Drone(mesa.Agent):
         self.role = DroneRole.SCOUT
 
         # Get configuration
-        self.battery_capacity = self.model.config.config.swarm.drone.battery_capacity
+        self.battery_capacity = self.model.config_loader.config.swarm.drone.battery_capacity
         self.battery_level = self.battery_capacity
-        self.vision_range = int(self.model.config.config.swarm.drone.vision_range)
-        self.communication_range = int(self.model.config.config.swarm.drone.communication_range)
+        self.vision_range = int(self.model.config_loader.config.swarm.drone.vision_range)
+        self.communication_range = int(self.model.config_loader.config.swarm.drone.communication_range)
 
         # For cordon formation
         self.cordon_neighbours: Set[int] = set()  # IDs of neighbouring cordon drones
@@ -59,7 +59,7 @@ class Drone(mesa.Agent):
         }
         self.boid = BoidController(self, boid_config)
 
-        self.consumption_per_cell = self.model.config.get("swarm.drone.consumption_per_cell", 1)
+        self.consumption_per_cell = self.model.config_loader.get("swarm.drone.consumption_per_cell", 1)
         self.operational_range = 0.8 * (self.battery_capacity / self.consumption_per_cell)
         self.desired_distance = self.communication_range * 0.9
 
