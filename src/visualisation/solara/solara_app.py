@@ -13,12 +13,10 @@ from mesa.visualization import SolaraViz, make_space_component
 from src.simulation.simulation_model import SimulationModel
 from src.utils.config_loader import ConfigLoader
 from src.utils.logging_config import get_logger
-from src.visualisation.solara.components import RuntimeControls
+from src.visualisation.solara.components import RuntimeControls, TopologyGraph
 from src.visualisation.solara.custom_elements import agent_portrayal
 
 logger = get_logger()
-
-plt.rcParams["figure.figsize"] = (15, 15)
 
 
 def main():
@@ -32,27 +30,38 @@ def main():
     config = ConfigLoader(config_path)
     model = SimulationModel(config)
 
+    # Set up size for space graph
+    area_size = config.config.simulation.area_size
+    a, b  = (12, 12) if area_size == "large" else (10, 10)
+    plt.rcParams["figure.figsize"] = (a, b)
+
     # Create visualization components
     SpaceGraph = make_space_component(agent_portrayal, draw_grid=False)
 
-    # Create additional visualization components as needed
-
-    # Define model parameters for UI controls (if needed)
+    # Define model parameters for UI controls
     model_params = {
+        "num_of_bases": {
+            "label": "Deployment Bases",
+            "type": "SliderInt",
+            "value": config.config.swarm.initial_bases,
+            "min": 0,
+            "max": 10,
+            "step": 1,
+        },
         "num_of_agents": {
-            "label": "Number of agents per base",
-            "type": "InputText",
-            "value": config.config.swarm.drone_base.number_of_agents},
-        "initial_bases": {
-            "label": "Number of bases",
-            "type": "InputText",
-            "value": config.config.swarm.initial_bases},
+            "label": "Agents (per Base)  ",
+            "type": "SliderInt",
+            "value": config.config.swarm.drone_base.number_of_agents,
+            "min": 1,
+            "max": 100,
+            "step": 1,
+        }
     }
 
     # Create Solara visualization
     page = SolaraViz(
         model,
-        components=[SpaceGraph, RuntimeControls],
+        components=[SpaceGraph, TopologyGraph, RuntimeControls],
         model_params=model_params,
         name="Wildfire Simulation",
         play_interval=1,

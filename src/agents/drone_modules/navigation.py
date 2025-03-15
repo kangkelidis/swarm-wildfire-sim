@@ -65,11 +65,13 @@ class NavigationModule:
         elif y > dy:
             y -= 1
 
+        new_pos = (x, y)
+
         # Update battery level based on distance moved
-        distance = self.chebyshev_distance(target)
+        distance = chebyshev_distance(self.drone.pos, target)
         self.drone.battery.update(distance)
 
-        self.drone.model.grid.move_agent(self.drone, (x, y))
+        self.drone.model.grid.move_agent(self.drone, new_pos)
 
     def get_random_direction(self, including_center: bool) -> tuple[int, int]:
         """
@@ -86,18 +88,6 @@ class NavigationModule:
         self.change_target(new_target)
         self.move_towards(self.target_pos)
 
-    def chebyshev_distance(self, target: tuple[int, int]) -> int:
-        """
-        Calculate the Chebyshev distance between the drone and a target position.
-
-        Known as chessboard distance, the minimum number of moves a king must take to reach the target.
-        The distance between two points is the greatest of their differences along any coordinate dimension.
-
-        :param target: The target position
-        :return: The Chebyshev distance
-        """
-        return max(abs(self.drone.pos[0] - target[0]), abs(self.drone.pos[1] - target[1]))
-
     def disperse(self):
         """
         If there are more than two drones in the same cell, move one of them to a random neighbouring
@@ -113,12 +103,16 @@ class NavigationModule:
         Find the closest neighbour, check the chebyshev distance and if it less than the desired
         distance, move away to increase the distance by one, reduce by one otherwise.
         """
-        if not self.drone.knowledge.neighbours:
+        if not self.drone.neighbours:
             self.random_walk()
             return
 
-        closest_neighbour = self.drone.knowledge.closest_neighbour
-        current_distance = self.drone.knowledge.distance_to_closest_neighbour
+        closest_neighbour = self.drone.knowledge.closest_leader
+        if not closest_neighbour:
+            self.random_walk()
+            return
+
+        current_distance = self.drone.knowledge.get_distance_to_closest_leader()
 
         # Calculate direction (move away if too close, move closer if too far)
         x, y = self.drone.pos
@@ -148,3 +142,23 @@ class NavigationModule:
             self.change_target((x, y))
 
         self.move_towards(self.target_pos)
+
+    def is_in_formation(self):
+        """
+        Check if the drone is in formation with the closest leader.
+        """
+        return self.drone.knowledge.get_distance_to_closest_leader() == self.drone.desired_distance
+
+
+def chebyshev_distance(pos_a: tuple[int, int], pos_b: tuple[int, int]) -> int:
+    """
+    Calculate the Chebyshev distance between two points.
+
+    Known as chessboard distance, the minimum number of moves a king must take to reach the target.
+    The distance between two points is the greatest of their differences along any coordinate dimension.
+
+    :param a: The first point
+    :param b: The second point
+    :return: The Chebyshev distance
+    """
+    return max(abs(pos_a[0] - pos_b[0]), abs(pos_a[1] - pos_b[1]))

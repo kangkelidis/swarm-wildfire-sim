@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING
 
+from src.agents.drone_modules.navigation import chebyshev_distance
+
 if TYPE_CHECKING:
     from src.agents.drone import Drone
     from src.utils.config_loader import Config
@@ -26,7 +28,7 @@ class BatteryModule:
 
     def needs_recharging(self):
         base = self.drone.knowledge.base_pos
-        distance = self.drone.navigation.chebyshev_distance(base)
+        distance = chebyshev_distance(self.drone.pos, base)
         return distance > self.estimate_range() * 0.8
 
     def recharge(self):

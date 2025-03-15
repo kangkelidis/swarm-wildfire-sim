@@ -1,5 +1,6 @@
-
+import matplotlib.pyplot as plt
 import solara
+from mesa.visualization.utils import update_counter
 
 
 @solara.component
@@ -15,20 +16,41 @@ def RuntimeControls(model):
     def add_base():
         """Add a new base to the simulation."""
         model.add_base()
+    with solara.Sidebar(), solara.Column():
+        with solara.Card("Runtime Controls", style={"width": "fit-content"}):
+            with solara.Column():
+                with solara.Row():
+                    solara.Button(
+                        "Start Random Fire",
+                        color="error",
+                        outlined=True,
+                        on_click=start_random_fire
+                        )
 
-    with solara.Card("Runtime Controls", style={"width": "fit-content"}):
-        with solara.Column():
-            with solara.Row():
-                solara.Button(
-                    "Start Random Fire",
-                    color="error",
-                    outlined=True,
-                    on_click=start_random_fire
-                )
+                    solara.Button(
+                        "Add Base",
+                        color="success",
+                        outlined=True,
+                        on_click=add_base
+                        )
 
-                solara.Button(
-                    "Add Base",
-                    color="success",
-                    outlined=True,
-                    on_click=add_base
-                )
+
+@solara.component
+def TopologyGraph(model):
+    """Component to display the network topology graph directly using Matplotlib"""
+    figure = solara.use_reactive(None)
+    update_counter.get()
+
+    def update_graph():
+        """Update the graph visualization"""
+        fig = model.display_topology()
+        figure.value = fig
+
+    # Update on component mount and each frame
+    solara.use_effect(update_graph, [model.steps])
+
+    with solara.Card("Network Topology"):
+        if figure.value:
+            solara.FigureMatplotlib(figure.value)
+        else:
+            solara.Info("No network topology available")

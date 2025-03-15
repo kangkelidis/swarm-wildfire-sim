@@ -18,7 +18,6 @@ class HexEnvironment(mesa.space.HexMultiGrid):
         self.model = model
 
         # create cells
-        # TODO: use config to determine size
         for x in range(width):
             for y in range(height):
                 cell = Cell(model)

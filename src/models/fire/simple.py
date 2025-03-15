@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Dict, List, Tuple
+from typing import TYPE_CHECKING
 
 import numpy as np
 
@@ -55,4 +55,7 @@ class SimpleFireModel:
             return
 
         neighbours = self.model.grid.get_neighbors(pos=cell.pos, moore=True, radius=1)
-        neighbours: List[Cell] = [n for n in neighbours if isinstance(n, Cell) and not n.burnt and not n.on_fire]
+        neighbours: list[Cell] = [n for n in neighbours if isinstance(n, Cell) and not n.burnt and not n.on_fire]
+        for neighbour in neighbours:
+            if self.model.random.random() < self.base_probabilities[neighbour.fuel_level]:
+                neighbour.on_fire = True
