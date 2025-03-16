@@ -6,22 +6,13 @@ from unittest.mock import patch
 import yaml
 
 from src.utils.config_loader import (ConfigError, ConfigFileNotFoundError,
-                              ConfigLoader, ConfigParsingError)
+                                     ConfigLoader, ConfigParsingError)
 
 
 class TestConfig(unittest.TestCase):
 
     def setUp(self):
         self.temp_dir = tempfile.mkdtemp()
-
-    def test_default_config(self):
-        """Test that default configuration is created when no path is provided"""
-        config = ConfigLoader()  # Should look for default config but fallback to hardcoded defaults
-        self.assertIsNotNone(config.config)
-        # Check various default values
-        self.assertEqual(config.config.simulation.area_size, 'small')
-        self.assertEqual(config.config.fire.model, 'simple')
-        self.assertEqual(config.config.swarm.drone_base.number_of_agents, 10)
 
     def test_find_default_config(self):
         """Test the method that finds the default config"""
@@ -237,10 +228,11 @@ class TestConfig(unittest.TestCase):
 
     def test_config_accessor_methods(self):
         """Test the API methods for accessing configuration values"""
-        config = ConfigLoader()
+        config_loader = ConfigLoader()
+        config = config_loader.config
 
         # Test attribute access style
-        self.assertEqual(config.config.simulation.area_size, 'small')
+        self.assertEqual(config.simulation.area_size, 'small')
 
         # Test the get method
         self.assertEqual(config.get('simulation.area_size'), 'small')

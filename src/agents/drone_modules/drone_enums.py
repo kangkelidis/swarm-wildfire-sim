@@ -16,6 +16,6 @@ class DroneColors(StrEnum):
     Enum for drone colors according to their role and state.
     """
     LEADER = "#FFA500"  # orange
-    SCOUT = "#002AFF"   # blue
+    SCOUT = "#ff9aaa"   # pink
     CORDON = "#800080"  # purple
     WALKER = "#FFFF00"  # yellow

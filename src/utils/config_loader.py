@@ -41,6 +41,9 @@ class SimulationConfig(BaseModel):
     save_data: bool = True
     save_location: str = "~/results"
 
+    deployment_cost: float = 1.0
+    charge_cost: float = 0.1
+
 
 class FireConfig(BaseModel):
     """Fire behaviour configuration"""
@@ -50,11 +53,14 @@ class FireConfig(BaseModel):
 
 class DroneConfig(BaseModel):
     """Configuration for individual drone agents"""
-    battery_capacity: float = Field(gt=0, default=100.0)
-    battery_consumption_per_cell: int = Field(gt=0, default=1)
+    battery_capacity: int = Field(gt=0, default=100)
     battery_recharge_rate: int = Field(gt=0, default=5)
     communication_range: float = Field(ge=0, default=10)
     vision_range: float = Field(ge=0, default=5)
+
+    battery_movement_cost: float = Field(gt=0, default=1.0)  # per cell
+    battery_hovering_cost: float = Field(gt=0, default=0.5)
+    battery_low_threshold: int = Field(ge=0, le=100, default=20)
 
 
 class DroneBaseConfig(BaseModel):

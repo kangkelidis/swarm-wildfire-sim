@@ -66,7 +66,7 @@ class DroneBehaviour(StateMachine):
 
     def is_fully_recharged(self):
         drone: 'Drone' = self.model
-        return drone.battery.is_fully_recharged()
+        return drone.battery.is_fully_charged()
 
     def is_crowded(self):
         drone: 'Drone' = self.model

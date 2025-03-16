@@ -51,6 +51,11 @@ class SimulationModel(mesa.Model):
         self.num_of_agents = self.config.swarm.drone_base.number_of_agents
         self.num_of_bases = self.config.swarm.initial_bases
 
+        # Initialize cost tracking
+        self.total_cost = 0.0
+        self.drone_deployments = 0
+        self.charging_events = 0
+
         self.cells = self.agents_by_type.get(Cell)
         self.drones = None
         self.bases = None
@@ -70,14 +75,49 @@ class SimulationModel(mesa.Model):
             drone.debug = True
             self.drones.do("set_up")
 
+    def register_drone_deployment(self, count: int = 1):
+        """
+        Register the deployment of drones and calculate the associated cost.
+
+        Args:
+            count: Number of drones being deployed
+        """
+        self.drone_deployments += count
+        deployment_cost = count * self.config.simulation.deployment_cost
+        self.total_cost += deployment_cost
+        logger.debug(f"Deployed {count} drones, added cost: {deployment_cost}")
+
+    def register_charging_event(self):
+        """
+        Register a drone charging event and calculate the associated cost.
+        """
+        self.charging_events += 1
+        charge_cost = self.config.simulation.charge_cost
+        self.total_cost += charge_cost
+        logger.debug(f"Drone charging event, added cost: {charge_cost}")
+
+    def get_cost_details(self):
+        """
+        Get a detailed breakdown of all costs.
+
+        Returns:
+            dict: Dictionary with cost details
+        """
+        deployment_cost = self.drone_deployments * self.config.simulation.deployment_cost
+        charging_cost = self.charging_events * self.config.simulation.charge_cost
+
+        return {
+            'drone_deployments': self.drone_deployments,
+            'charging_events': self.charging_events,
+            'deployment_cost': deployment_cost,
+            'charging_cost': charging_cost,
+            'total_cost': self.total_cost
+        }
+
     def step(self):
         """
         Execute one step of the simulation.
         """
-
-        if self.steps % 10 == 0:
-            self.topology()
-
         if self.cells:
             self.cells.shuffle_do("step")
 
@@ -140,75 +180,14 @@ class SimulationModel(mesa.Model):
         base = DroneBase(self, self.num_of_agents, self.config)
         self.grid.place_agent(base, (x, y))
         base.deploy_drones()
+        # Register drone deployment cost
+        self.register_drone_deployment(self.num_of_agents)
 
         if self.bases:
             self.bases.add(base)
         else:
             self.bases: mesa.agent.AgentSet = self.agents_by_type.get(DroneBase)
             self.drones: mesa.agent.AgentSet = self.agents_by_type.get(Drone)
-
-    # TODO: REMOVE
-    def topology(self):
-        """
-
-        """
-        if not self.drones:
-            return
-
-        topology = nx.Graph()
-
-        for drone in self.drones:
-            drone: Drone
-            graph = drone.knowledge.network.graph
-            topology.add_nodes_from(graph.nodes(data=True))
-            topology.add_edges_from(graph.edges(data=True))
-
-        # Create position layout for nodes
-        # TODO: check different layouts
-        pos = nx.spring_layout(topology)
-
-        # Draw nodes with different colors based on role
-        # Leader drones
-        leaders = [n for n in topology.nodes() if n.role == DroneRole.LEADER]
-        nx.draw_networkx_nodes(topology, pos,
-                            nodelist=leaders,
-                            node_color=DroneColors.LEADER.value,
-                            node_size=300)
-
-        # Follower drones
-        followers = [n for n in topology.nodes() if n.role == DroneRole.SCOUT]
-        nx.draw_networkx_nodes(topology, pos,
-                            nodelist=followers,
-                            node_color=DroneColors.SCOUT.value,
-                            node_size=300)
-
-        # Draw edges with different styles based on relationship
-        # # Leader connections (solid bold)
-        leader_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
-                        if d['relation'] == 'leader' or d['relation'] == 'follower']
-        nx.draw_networkx_edges(topology, pos,
-                            edgelist=leader_edges,
-                            width=2.0,
-                            edge_color='black')
-
-
-        # Follower connections (dotted)
-        follower_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
-                          if d['relation'] == 'peer']
-        nx.draw_networkx_edges(topology, pos,
-                            edgelist=follower_edges,
-                            width=0.5,
-                            edge_color='grey',
-                            style='dotted')
-
-        # Add labels
-        labels = {node: f"D{node.unique_id}" for node in topology.nodes()}
-        plt.title(f"Drone Network")
-        nx.draw_networkx_labels(topology, pos, labels)
-        plt.savefig('topology.png')
-        plt.close()
-
-        logger.success("Topology Drawn")
 
     def display_topology(self):
         """Generate network topology visualization"""
@@ -234,13 +213,13 @@ class SimulationModel(mesa.Model):
         nx.draw_networkx_nodes(topology, pos,
                                nodelist=leaders,
                                node_color=DroneColors.LEADER.value,
-                               node_size=100)
+                               node_size=90)
 
         followers = [n for n in topology.nodes() if n.role == DroneRole.SCOUT]
         nx.draw_networkx_nodes(topology, pos,
                                nodelist=followers,
                                node_color=DroneColors.SCOUT.value,
-                               node_size=70)
+                               node_size=50)
 
         # Draw edges
         leader_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
@@ -261,7 +240,8 @@ class SimulationModel(mesa.Model):
         # Add labels
         # labels = {node: f"D{node.unique_id}" for node in topology.nodes()}
         labels = {node: "" for node in topology.nodes()}
-        plt.title(f"Drone Network")
+        plt.title("Drone Network")
+        plt.tight_layout()
         nx.draw_networkx_labels(topology, pos, labels)
 
         return fig
