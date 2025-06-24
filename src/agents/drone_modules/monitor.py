@@ -6,12 +6,11 @@ Simulates the drone's sensors.
 
 from typing import TYPE_CHECKING
 
-from src.agents.drone_modules.communication import Message, MessageType
-from src.agents.drone_modules.drone_enums import DroneRole
+from src.agents.drone_modules import DroneRole, Message, MessageType
 from src.agents.drone_modules.navigation import chebyshev_distance
 
 if TYPE_CHECKING:
-    from src.agents.drone import Drone
+    from src.agents import Cell, Drone
 
 
 class SensorModule:
@@ -78,11 +77,26 @@ class SensorModule:
         if message.type == MessageType.FIRE_ALERT:
             # Update fire knowledge
             fire_pos = message.content
-            self.drone.knowledge.reported_fires.add(fire_pos)
+            self.drone.knowledge.reported_fires.update(fire_pos)
 
         elif message.type == MessageType.REGISTRATION:
             self.drone.knowledge.network.add(message.sender)
             message.sender.knowledge.network.add(self.drone)
+
+        elif message.type == MessageType.DEREGISTRATION:
+            self.drone.knowledge.network.remove(message.sender)
+            message.sender.knowledge.network.remove(self.drone)
+
+    def detect_fire(self) -> list['Cell']:
+        """
+        Detect fire in the drone's visibility range.
+        """
+        from src.agents import Cell
+
+        cells: list[Cell] = self.drone.model.get_neighbors(self.drone.pos, include_center=True,
+                                                           radius=self.drone.vision_range, type=Cell)
+        cells = [cell for cell in cells if cell.on_fire]
+        return cells
 
     def gather_info(self):
         """Update all """
@@ -92,3 +106,11 @@ class SensorModule:
         self._get_closest_neighbour()
 
         self._receive_messages()
+
+        if self.drone.role == DroneRole.SCOUT:
+            fire_cells = self.detect_fire()
+            if fire_cells:
+                # Send fire alert to all drones in range
+                fire_positions = [cell.pos for cell in fire_cells]
+                self.drone.communication.send_fire_alert(fire_positions)
+                self.drone.knowledge.reported_fires.update(fire_positions)

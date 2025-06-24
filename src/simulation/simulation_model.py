@@ -57,6 +57,7 @@ class SimulationModel(mesa.Model):
         self.charging_events = 0
 
         self.cells = self.agents_by_type.get(Cell)
+        self.burning_cells = self.agents.select(filter_func=lambda x: x.on_fire, agent_type=Cell)
         self.drones = None
         self.bases = None
 
@@ -72,7 +73,7 @@ class SimulationModel(mesa.Model):
         # Set debug flag for a random drone
         if self.drones:
             drone = self.random.choice(self.drones)
-            drone.debug = True
+            drone.debug = False
             self.drones.do("set_up")
 
     def register_drone_deployment(self, count: int = 1):
@@ -118,8 +119,8 @@ class SimulationModel(mesa.Model):
         """
         Execute one step of the simulation.
         """
-        if self.cells:
-            self.cells.shuffle_do("step")
+        if self.burning_cells:
+            self.burning_cells.shuffle_do("step")
 
         if self.drones:
             self.drones.shuffle_do("step")
@@ -136,7 +137,8 @@ class SimulationModel(mesa.Model):
             if not self.running:
                 break
 
-    def get_neighbors(self, pos, moore=True, include_center=False, radius=1):
+    def get_neighbors(self, pos: tuple[int, int], moore: bool = True,
+                      include_center: bool = False, radius: int = 1, type: mesa.Agent = None):
         """
         Get neighbors of a cell.
 
@@ -144,17 +146,20 @@ class SimulationModel(mesa.Model):
         :param moore: Include diagonal neighbours
         :param include_center: Include the center cell
         :param radius: Radius of the neighbourhood
+        :param type: Type of agent to filter
 
         :returns: List of neighbouring cells
         """
-        return self.grid.get_neighbors(pos, moore, include_center, radius)
+        agents = self.grid.get_neighbors(pos, moore, include_center, radius)
+        if type:
+            agents = [agent for agent in agents if isinstance(agent, type)]
+        return agents
 
-    def start_fire(self, num_fires=1, position=None):
+    def start_fire(self, position: tuple[int, int] = None):
         """
         Start fires in the simulation.
 
         Args:
-            num_fires: Number of random fires to start
             position: Optional (x,y) tuple to start fire at specific location
         """
         if position:
@@ -163,13 +168,15 @@ class SimulationModel(mesa.Model):
             cells = [agent for agent in cell_contents if isinstance(agent, Cell)]
             if cells:
                 cells[0].on_fire = True
+                self.burning_cells.add(cells[0])
         else:
-            # Start random fires
-            available_cells = [agent for agent in self.cells if not agent.on_fire]
-            if available_cells:
-                cells_to_ignite = self.random.sample(available_cells, min(num_fires, len(available_cells)))
-                for cell in cells_to_ignite:
-                    cell.on_fire = True
+            # Start a random fire
+            while True:
+                random_cell: Cell = self.random.choice(self.cells)
+                if not random_cell.on_fire:
+                    random_cell.on_fire = True
+                    self.burning_cells.add(random_cell)
+                    break
 
     def add_base(self):
         """
@@ -222,13 +229,6 @@ class SimulationModel(mesa.Model):
                                node_size=50)
 
         # Draw edges
-        leader_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
-                        if d['relation'] == 'leader' or d['relation'] == 'follower']
-        nx.draw_networkx_edges(topology, pos,
-                               edgelist=leader_edges,
-                               width=1.0,
-                               edge_color='grey')
-
         follower_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
                           if d['relation'] == 'peer']
         nx.draw_networkx_edges(topology, pos,
@@ -237,10 +237,16 @@ class SimulationModel(mesa.Model):
                                edge_color='grey',
                                style='dotted')
 
+        leader_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
+                        if d['relation'] == 'leader' or d['relation'] == 'follower']
+        nx.draw_networkx_edges(topology, pos,
+                               edgelist=leader_edges,
+                               width=0.5,
+                               edge_color='black')
+
         # Add labels
         # labels = {node: f"D{node.unique_id}" for node in topology.nodes()}
         labels = {node: "" for node in topology.nodes()}
-        plt.title("Drone Network")
         plt.tight_layout()
         nx.draw_networkx_labels(topology, pos, labels)
 

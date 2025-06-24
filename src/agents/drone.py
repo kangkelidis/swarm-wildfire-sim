@@ -43,6 +43,8 @@ class Drone(mesa.Agent):
         super().__init__(model)
         self.model: 'SimulationModel'
         self.communication_range = int(config.swarm.drone.communication_range)
+        self.vision_range = int(config.swarm.drone.vision_range)
+        self.max_peers = int(config.swarm.drone.max_peers)
         # The distance leader drones should maintain between each other
         self.desired_distance = int(self.communication_range * Drone.DESIRED_DISTANCE_MULTIPLIER)
 
@@ -90,8 +92,8 @@ class Drone(mesa.Agent):
             return
         self.state_machine.send(plan)
 
-        if self.model.steps % 10 == 0 and self.debug:
-            self.knowledge.network.draw()
+        if self.communication.outgoing_buffer:
+            self.communication.broadcast()
 
     def leader_score(self) -> float:
         """

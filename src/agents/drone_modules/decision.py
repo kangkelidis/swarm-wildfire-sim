@@ -50,13 +50,21 @@ class DecisionModule:
         """
         Analysis for scout drones.
         """
+        if self.drone.state_machine.current_state == self.drone.state_machine.idle:
+            return 'deploy'
+
+        if self.drone.knowledge.reported_fires:
+            return 'fire_detected'
+
         return 'deploy'
 
     def _cordon_analysis(self):
         """
         Analysis for cordon drones.
         """
-        pass
+        if len(self.drone.knowledge.reported_fires) == 0:
+            return 'no_fire_detected'
+        return 'fire_detected'
 
     def _walker_analysis(self):
         """
@@ -83,7 +91,7 @@ class DecisionModule:
 
         Rules:
         1. Connect with other leaders only if both are in formation
-        2. Connect with followers up to max capacity (1/LEADERS_RATIO)
+        2. Connect with followers up to max capacity (1/LEADERS_RATIO) only if in formation
         3. Only connect with followers that aren't already connected to other leaders
         """
         # Calculate available follower slots
@@ -91,15 +99,16 @@ class DecisionModule:
         available_slots = max_followers - len(self.drone.knowledge.network.followers)
 
         connections = []
-        # Find available leaderless followers
-        if available_slots > 0:
-            leaderless_followers = [drone for drone in self.drone.neighbours
-                                    if drone.role != DroneRole.LEADER and
-                                    drone.knowledge.network.leader is None][:available_slots]
-            connections.extend(leaderless_followers)
+        # only connect if you are in formation
+        if self.drone.navigation.is_in_formation():
+            # Find available leaderless followers
+            if available_slots > 0:
+                leaderless_followers = [drone for drone in self.drone.neighbours
+                                        if drone.role != DroneRole.LEADER and
+                                        drone.knowledge.network.leader is None][:available_slots]
+                connections.extend(leaderless_followers)
 
         # Connect with other leaders if both in formation
-        if self.drone.navigation.is_in_formation():
             leader_peers = [drone for drone in self.drone.neighbours
                             if drone.role == DroneRole.LEADER and
                             drone.navigation.is_in_formation()]
@@ -114,20 +123,41 @@ class DecisionModule:
 
         Connect with a subset of the drones that share the same leader.
         """
-        MAX_PEERS = 5
+        max_peers = self.drone.max_peers
+
+        leader = self.drone.knowledge.network.leader
+
         # If the scout has no leader, connect with the closest leader
-        if self.drone.knowledge.network.leader is None:
-            if self.drone.knowledge.closest_leader:
+        if leader is None:
+            if self.drone.knowledge.closest_leader and self.drone.knowledge.closest_leader.navigation.is_in_formation():
                 self.drone.communication.send_registration([self.drone.knowledge.closest_leader])
                 return
             return
 
-        peers = [drone for drone in self.drone.knowledge.network.leader.knowledge.network.followers
-                 if drone != self.drone]
+        # Leader exists
+        # De-register if leader is out of communication range or not in formation
+        if (chebyshev_distance(self.drone.pos, leader.pos) > self.drone.communication_range or
+                not leader.navigation.is_in_formation()):
+            self.drone.communication.send_deregistration([leader])
+            for drone in self.drone.knowledge.network.peers:
+                # TODO: check if this is a good idea
+                self.drone.communication.send_deregistration([drone])
+            return
+
+        # Peers exist
+        existing_peers = self.drone.knowledge.network.peers
+        if existing_peers:
+            ex_peers = [drone for drone in existing_peers if
+                        chebyshev_distance(self.drone.pos, drone.pos) > self.drone.communication_range]
+            self.drone.communication.send_deregistration(ex_peers)
+            return
+
+        # Connect with new peers for the first time
+        peers = [drone for drone in leader.knowledge.network.followers if drone != self.drone]
 
         # get the MAX_PEERS closest peers
         peers = sorted(peers, key=lambda d: chebyshev_distance(self.drone.pos, d.pos))
-        peers = peers[:MAX_PEERS]
+        peers = peers[:max_peers]
         if peers:
             self.drone.communication.send_registration(peers)
 

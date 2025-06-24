@@ -39,19 +39,16 @@ class SimpleFireModel:
         }
 
     def calculate_fire_spread(self, cell: Cell):
-        """Calculate fire spread for a cell.
+        """Calculate fire spread for a cell and its neighbours.
 
         Args:
-            cell: The cell to evaluate
+            cell: The cell on fire.
         """
-
-        if not cell.on_fire:
-            return
-
         cell.burn_counter += 1
         if cell.burn_counter >= self.burn_times[cell.fuel_level]:
             cell.on_fire = False
             cell.burnt = True
+            self.model.burning_cells.remove(cell)
             return
 
         neighbours = self.model.grid.get_neighbors(pos=cell.pos, moore=True, radius=1)
@@ -59,3 +56,4 @@ class SimpleFireModel:
         for neighbour in neighbours:
             if self.model.random.random() < self.base_probabilities[neighbour.fuel_level]:
                 neighbour.on_fire = True
+                self.model.burning_cells.add(neighbour)

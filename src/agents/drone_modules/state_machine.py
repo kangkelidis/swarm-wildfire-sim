@@ -44,6 +44,7 @@ class DroneBehaviour(StateMachine):
     )
 
     fire_detected = patrolling.to(cordoning) | cordoning.to.itself()
+    no_fire_detected = cordoning.to(patrolling)
 
     need_to_return = (
         dispersing.to(return_to_base) |
@@ -116,7 +117,13 @@ class DroneBehaviour(StateMachine):
         drone: 'Drone' = self.model
         drone.drone_logger.debug(f"Drone is transitioning to {self.current_state}, triggered by {event}")
 
+    def on_enter_cordoning(self):
+        drone: 'Drone' = self.model
+        # drone.navigation.cordon()
+        drone.role = DroneRole.CORDON
+        pass
+
     def print_state_diagram(self):
         graph = DotGraphMachine(self)
         dot = graph()
-        dot.write_png("drone_state_machine.png")
+        dot.write_png("out/drone_state_machine.png")

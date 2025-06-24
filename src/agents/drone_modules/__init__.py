@@ -1,5 +1,5 @@
 from .battery import BatteryModule
-from .communication import CommunicationModule
+from .communication import CommunicationModule, Message, MessageType
 from .decision import DecisionModule
 from .drone_enums import DroneColors, DroneRole
 from .knowledge import DroneKnowledge
@@ -17,4 +17,6 @@ __all__ = [
     "DroneBehaviour",
     "DroneRole",
     "DroneColors",
+    "MessageType",
+    "Message",
 ]

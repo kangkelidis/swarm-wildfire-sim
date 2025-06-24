@@ -13,14 +13,15 @@ swarm:
   initial_bases: 1
 
   drone_base:
-    number_of_agents: 30
+    number_of_agents: 35
 
 # TODO: should this be in km? and scaled in the loading process?
   drone:
-    battery_capacity: 70
+    battery_capacity: 7000
     battery_movement_cost: 1
     battery_hovering_cost: 0.5
     battery_low_threshold: 20
     battery_recharge_rate: 5
     communication_range: 15
-    vision_range: 5
+    vision_range: 3
+    max_peers: 3

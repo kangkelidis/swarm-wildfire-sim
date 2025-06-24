@@ -19,6 +19,7 @@ class MessageType(Enum):
     """Types of messages that drones can exchange."""
     FIRE_ALERT = "fire_alert"
     REGISTRATION = "registration"
+    DEREGISTRATION = "deregistration"
 
 
 @dataclass
@@ -41,9 +42,6 @@ class CommunicationModule:
 
     def broadcast(self):
         """Broadcast messages to all drones in range at end of turn."""
-        if not self.outgoing_buffer:
-            return
-
         # Get all drones in communication range
         recipients = self.drone.drones_in_range
 
@@ -57,13 +55,13 @@ class CommunicationModule:
             # Leaders broadcast to their followers and base
             valid_recipients = [
                 r for r in recipients
-                if r in self.drone.knowledge.followers or hasattr(r, 'is_base')
+                if r in self.drone.knowledge.network.followers or hasattr(r, 'is_base')
             ]
         elif self.drone.role == DroneRole.SCOUT:
             # Scouts broadcast to other scouts and their leader
             valid_recipients = [
                 r for r in recipients
-                if (r.role == DroneRole.SCOUT or r == self.drone.knowledge.leader)
+                if (r.role == DroneRole.SCOUT or r == self.drone.knowledge.network.leader)
             ]
         else:
             valid_recipients = recipients
@@ -98,6 +96,18 @@ class CommunicationModule:
         """Register with other drones in range."""
         message = Message(
             type=MessageType.REGISTRATION,
+            sender=self.drone,
+            content=None,
+            timestamp=self.drone.model.steps,
+            position=self.drone.pos
+        )
+        for drone in drones:
+            drone.knowledge.mailbox.append(message)
+
+    def send_deregistration(self, drones: list['Drone']):
+        """Deregister with drones."""
+        message = Message(
+            type=MessageType.DEREGISTRATION,
             sender=self.drone,
             content=None,
             timestamp=self.drone.model.steps,

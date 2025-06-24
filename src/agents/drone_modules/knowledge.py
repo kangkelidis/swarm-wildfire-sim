@@ -57,7 +57,11 @@ class Network:
             self.graph.add_edge(self.drone, drone, relation='leader')
 
     def remove(self, drone: 'Drone'):
-        self.graph.remove_node(drone)
+        try:
+            if drone in self.graph:
+                self.graph.remove_node(drone)
+        except nx.NetworkXError:
+            warnings.warn(f"Drone {drone} not found in graph.")
 
         if drone in self.peers:
             self.peers.remove(drone)
@@ -82,6 +86,7 @@ class Network:
     def __repr__(self):
         return f"Network(followers={self.followers}, peers={self.peers}, leader={self.leader}, base={self.base})"
 
+    # TODO: change or remove
     def draw(self):
         """Draw the network graph with custom colors and styles."""
         # Create position layout for nodes
@@ -137,7 +142,7 @@ class Network:
 
         plt.title(f"Drone {self.drone.unique_id} Network")
         plt.axis('off')
-        plt.savefig('debug_drone_network_graph.png')
+        plt.savefig('out/debug_drone_network_graph.png')
         plt.close()
 
 
@@ -192,7 +197,7 @@ class DroneKnowledge:
     def closest_leader(self) -> Optional['Drone']:
         return self._closest_leader.drone
 
-    def get_distance_to_closest_leader(self) -> int:
+    def get_distance_to_closest_leader(self) -> Optional[int]:
         return self._closest_leader.distance
 
     @closest_leader.setter
@@ -203,4 +208,3 @@ class DroneKnowledge:
 
         distance = chebyshev_distance(self.drone.pos, drone.pos)
         self._closest_leader = ClosestNeighbour(drone, distance)
-

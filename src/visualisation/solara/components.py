@@ -9,14 +9,12 @@ if TYPE_CHECKING:
 
 
 @solara.component
-def RuntimeControls(model):
+def RuntimeControls(model: 'SimulationModel'):
     """Component for runtime simulation controls."""
-
-    fire_count = solara.use_state(1)
 
     def start_random_fire():
         """Start a random fire in the simulation."""
-        model.start_fire(num_fires=fire_count)
+        model.start_fire()
 
     def add_base():
         """Add a new base to the simulation."""
@@ -40,7 +38,7 @@ def RuntimeControls(model):
 
 
 @solara.component
-def TopologyGraph(model):
+def TopologyGraph(model: 'SimulationModel'):
     """Component to display the network topology graph directly using Matplotlib"""
     figure = solara.use_reactive(None)
     update_counter.get()

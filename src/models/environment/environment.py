@@ -46,7 +46,7 @@ class GridEnvironment(mesa.space.MultiGrid):
                 if y < 5:
                     continue
                 if (height // 2 - 1 < y < height // 2 + 1) or (width // 2 - 1 < x < width // 2 + 1):
-                    cell = Cell(model, is_road=True)
+                    cell = Cell(model, is_road=False)
                     self.place_agent(cell, (x, y))
                     continue
                 cell = Cell(model)

@@ -56,11 +56,13 @@ class DroneConfig(BaseModel):
     battery_capacity: int = Field(gt=0, default=100)
     battery_recharge_rate: int = Field(gt=0, default=5)
     communication_range: float = Field(ge=0, default=10)
-    vision_range: float = Field(ge=0, default=5)
+    vision_range: float = Field(ge=0, default=3)
 
     battery_movement_cost: float = Field(gt=0, default=1.0)  # per cell
     battery_hovering_cost: float = Field(gt=0, default=0.5)
     battery_low_threshold: int = Field(ge=0, le=100, default=20)
+
+    max_peers: int = Field(gt=0, default=3)
 
 
 class DroneBaseConfig(BaseModel):

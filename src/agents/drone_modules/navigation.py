@@ -146,8 +146,11 @@ class NavigationModule:
     def is_in_formation(self):
         """
         Check if the drone is in formation with the closest leader.
+
+        If there is not closest leader, the drone is in formation.
         """
-        return self.drone.knowledge.get_distance_to_closest_leader() == self.drone.desired_distance
+        distance = self.drone.knowledge.get_distance_to_closest_leader()
+        return distance == self.drone.desired_distance or distance is None
 
 
 def chebyshev_distance(pos_a: tuple[int, int], pos_b: tuple[int, int]) -> int:
