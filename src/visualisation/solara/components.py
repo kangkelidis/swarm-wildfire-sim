@@ -37,26 +37,6 @@ def RuntimeControls(model: 'SimulationModel'):
                         on_click=add_base)
 
 
-@solara.component
-def TopologyGraph(model: 'SimulationModel'):
-    """Component to display the network topology graph directly using Matplotlib"""
-    figure = solara.use_reactive(None)
-    update_counter.get()
-
-    def update_graph():
-        """Update the graph visualization"""
-        fig = model.display_topology()
-        figure.value = fig
-
-    # Update on component mount and each frame
-    solara.use_effect(update_graph, [model.steps])
-
-    with solara.Card("Network Topology"):
-        if figure.value:
-            solara.FigureMatplotlib(figure.value)
-        else:
-            solara.Info("No network topology available")
-
 
 @solara.component
 def CostComponent(model: 'SimulationModel'):

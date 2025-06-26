@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING, Any, Optional
 
-from src.agents.drone_modules.drone_enums import DroneRole
 from src.utils.logging_config import get_logger
 
 if TYPE_CHECKING:

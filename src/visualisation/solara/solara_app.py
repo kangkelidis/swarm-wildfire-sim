@@ -13,9 +13,7 @@ from mesa.visualization import SolaraViz, make_space_component
 from src.simulation.simulation_model import SimulationModel
 from src.utils.config_loader import ConfigLoader
 from src.utils.logging_config import get_logger
-from src.visualisation.solara.components import (CostComponent,
-                                                 RuntimeControls,
-                                                 TopologyGraph)
+from src.visualisation.solara.components import CostComponent, RuntimeControls
 from src.visualisation.solara.custom_elements import agent_portrayal
 
 logger = get_logger()
@@ -63,7 +61,7 @@ def main():
     # Create Solara visualization
     page = SolaraViz(
         model,
-        components=[SpaceGraph, TopologyGraph, RuntimeControls, CostComponent],
+        components=[SpaceGraph, RuntimeControls, CostComponent],
         model_params=model_params,
         name="Wildfire Simulation",
         play_interval=1,

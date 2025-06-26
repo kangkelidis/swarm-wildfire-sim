@@ -1,5 +1,4 @@
 from src.agents import Cell, Drone, DroneBase, FuelLevel
-from src.agents.drone_modules import DroneColors, DroneRole
 
 
 def cell_portrayal(agent: Cell):
@@ -44,26 +43,6 @@ def drone_portrayal(drone: Drone):
     size = 10
     zorder = 10
 
-    if drone.role == DroneRole.LEADER:
-        color = DroneColors.LEADER.value
-    elif drone.role == DroneRole.SCOUT:
-        color = DroneColors.SCOUT.value
-    elif drone.role == DroneRole.CORDON:
-        color = DroneColors.CORDON.value
-    elif drone.role == DroneRole.WALKER:
-        color = DroneColors.WALKER.value
-
-    if drone.state_machine.current_state.name == "Dispersing":
-        color += "20"  # Add transparency
-
-    elif drone.state_machine.current_state.name == "Hovering_leader":
-        marker = "s"
-        color = "#002094"  # Dark blue
-        size *= 2
-
-    elif drone.state_machine.current_state.name == "Return_to_base":
-        marker = 'x'
-        color = 'black'
 
     if drone.debug:
         marker = "^"

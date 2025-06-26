@@ -6,7 +6,6 @@ import mesa.agent
 import networkx as nx
 
 from src.agents import Cell, Drone, DroneBase
-from src.agents.drone_modules.drone_enums import DroneColors, DroneRole
 from src.models.environment.environment import (GridEnvironment,
                                                 HexEnvironment,
                                                 SpaceEnvironment)
@@ -196,58 +195,3 @@ class SimulationModel(mesa.Model):
             self.bases: mesa.agent.AgentSet = self.agents_by_type.get(DroneBase)
             self.drones: mesa.agent.AgentSet = self.agents_by_type.get(Drone)
 
-    def display_topology(self):
-        """Generate network topology visualization"""
-        if not self.drones:
-            return None
-
-        # Create a figure
-        fig, ax = plt.subplots(figsize=(8, 8))
-
-        topology = nx.Graph()
-
-        for drone in self.drones:
-            graph = drone.knowledge.network.graph
-            topology.add_nodes_from(graph.nodes(data=True))
-            topology.add_edges_from(graph.edges(data=True))
-
-        # Create position layout for nodes
-        # pos = nx.circular_layout(topology)
-        pos = {node: (node.pos[0], node.pos[1]) for node in topology.nodes()}
-
-        # Draw nodes with different colors based on role
-        leaders = [n for n in topology.nodes() if n.role == DroneRole.LEADER]
-        nx.draw_networkx_nodes(topology, pos,
-                               nodelist=leaders,
-                               node_color=DroneColors.LEADER.value,
-                               node_size=90)
-
-        followers = [n for n in topology.nodes() if n.role == DroneRole.SCOUT]
-        nx.draw_networkx_nodes(topology, pos,
-                               nodelist=followers,
-                               node_color=DroneColors.SCOUT.value,
-                               node_size=50)
-
-        # Draw edges
-        follower_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
-                          if d['relation'] == 'peer']
-        nx.draw_networkx_edges(topology, pos,
-                               edgelist=follower_edges,
-                               width=0.5,
-                               edge_color='grey',
-                               style='dotted')
-
-        leader_edges = [(u, v) for (u, v, d) in topology.edges(data=True)
-                        if d['relation'] == 'leader' or d['relation'] == 'follower']
-        nx.draw_networkx_edges(topology, pos,
-                               edgelist=leader_edges,
-                               width=0.5,
-                               edge_color='black')
-
-        # Add labels
-        # labels = {node: f"D{node.unique_id}" for node in topology.nodes()}
-        labels = {node: "" for node in topology.nodes()}
-        plt.tight_layout()
-        nx.draw_networkx_labels(topology, pos, labels)
-
-        return fig

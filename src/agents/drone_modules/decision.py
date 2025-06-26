@@ -1,180 +1,96 @@
 """
-Decision module for drones. This module is responsible for making decisions based on the drone's role and state.
-
-Responsible for the network formation.
+Decision module for drones. This module is responsible for making decisions based on the drone's state and utility calculations.
 """
 
 from typing import TYPE_CHECKING
 
-from src.agents.drone_modules.drone_enums import DroneRole
-from src.agents.drone_modules.navigation import chebyshev_distance
 from src.utils.logging_config import get_logger
 
 if TYPE_CHECKING:
     from src.agents.drone import Drone
 
 
-# TODO: do we need this, decisions are made in the state machine
 class DecisionModule:
     def __init__(self, drone: 'Drone'):
         self.drone = drone
+        self.utility_threshold = 0.5  # τ threshold for decision making
 
     def process(self) -> str:
         """
-        Process the drone's role and update the drone's state.
+        Process the drone's decisions based on current state and utility calculations.
         """
 
-        self.update_network()
-
-        if self.drone.state_machine.current_state.name == 'Recharging':
-            return 'recharge'
+        # Always check if battery needs recharging first
         if self.drone.battery.needs_recharging():
             return 'need_to_return'
 
-        if self.drone.role == DroneRole.LEADER:
-            return self._leader_analysis()
-        elif self.drone.role == DroneRole.SCOUT:
-            return self._scout_analysis()
-        elif self.drone.role == DroneRole.CORDON:
-            return self._cordon_analysis()
-        elif self.drone.role == DroneRole.WALKER:
-            return self._walker_analysis()
+        current_state = self.drone.state_machine.current_state.name
 
-    def _leader_analysis(self):
-        """
-        Analysis for leader drones.
-        """
-        return 'deploy'
+        if current_state == 'active':
+            # Drone is active on grid - evaluate if should continue or return
+            marginal_utility = self.estimate_marginal_utility()
+            if marginal_utility < self.utility_threshold:
+                return 'return_to_base'
+            return 'continue_mission'
 
-    def _scout_analysis(self):
-        """
-        Analysis for scout drones.
-        """
-        if self.drone.state_machine.current_state == self.drone.state_machine.idle:
-            return 'deploy'
+        elif current_state == 'inactive':
+            # Drone is at base - evaluate deployment opportunities
+            deployment_utility = self.evaluate_deployment_opportunity()
+            if deployment_utility > self.utility_threshold:
+                return 'deploy'
+            return 'stay_at_base'
 
+        elif current_state == 'returning_to_base':
+            return 'continue_return'
+
+        return 'no_action'
+
+    def estimate_marginal_utility(self) -> float:
+        """
+        Estimate the marginal utility of continuing current mission.
+        Returns a value between 0 and 1.
+        """
+        # Simple utility calculation based on:
+        # - Remaining battery
+        # - Distance to known fires
+        # - Coverage area effectiveness
+
+        battery_factor = self.drone.battery.get_charge_level() / 100.0
+
+        # If there are known fires nearby, utility is higher
+        fire_factor = 0.0
         if self.drone.knowledge.reported_fires:
-            return 'fire_detected'
+            closest_fire_distance = min([
+                abs(self.drone.pos[0] - fire_pos[0]) + abs(self.drone.pos[1] - fire_pos[1])
+                for fire_pos in self.drone.knowledge.reported_fires
+            ])
+            # Higher utility for closer fires
+            fire_factor = max(0, 1.0 - (closest_fire_distance / 20.0))
 
-        return 'deploy'
+        # Combine factors
+        utility = (battery_factor * 0.6) + (fire_factor * 0.4)
+        return min(1.0, max(0.0, utility))
 
-    def _cordon_analysis(self):
+    def evaluate_deployment_opportunity(self) -> float:
         """
-        Analysis for cordon drones.
+        Evaluate the utility of deploying from base.
+        Returns a value between 0 and 1.
         """
-        if len(self.drone.knowledge.reported_fires) == 0:
-            return 'no_fire_detected'
-        return 'fire_detected'
+        # Simple deployment utility based on:
+        # - Battery level (should be high to deploy)
+        # - Known fire locations requiring coverage
+        # - Number of other active drones
 
-    def _walker_analysis(self):
-        """
-        Analysis for walker drones.
-        """
-        pass
+        battery_factor = self.drone.battery.get_charge_level() / 100.0
 
-    def update_network(self):
-        """
-        Update the network based on the drone's role.
-        """
-        if self.drone.role == DroneRole.LEADER:
-            self._leader_network()
-        elif self.drone.role == DroneRole.SCOUT:
-            self._scout_network()
-        elif self.drone.role == DroneRole.CORDON:
-            self._cordon_network()
-        elif self.drone.role == DroneRole.WALKER:
-            self._walker_network()
+        # Higher utility if fires are detected and need coverage
+        fire_factor = 0.3  # Base exploration value
+        if self.drone.knowledge.reported_fires:
+            fire_factor = 0.8  # Higher if fires need attention
 
-    def _leader_network(self):
-        """
-        Update the network for leader drones.
+        # Consider how many other drones are already active
+        # (This would require knowledge of other drones' states)
+        activity_factor = 0.7  # Simplified - assume some deployment is usually beneficial
 
-        Rules:
-        1. Connect with other leaders only if both are in formation
-        2. Connect with followers up to max capacity (1/LEADERS_RATIO) only if in formation
-        3. Only connect with followers that aren't already connected to other leaders
-        """
-        # Calculate available follower slots
-        max_followers = int(1 // self.drone.LEADERS_RATIO)
-        available_slots = max_followers - len(self.drone.knowledge.network.followers)
-
-        connections = []
-        # only connect if you are in formation
-        if self.drone.navigation.is_in_formation():
-            # Find available leaderless followers
-            if available_slots > 0:
-                leaderless_followers = [drone for drone in self.drone.neighbours
-                                        if drone.role != DroneRole.LEADER and
-                                        drone.knowledge.network.leader is None][:available_slots]
-                connections.extend(leaderless_followers)
-
-        # Connect with other leaders if both in formation
-            leader_peers = [drone for drone in self.drone.neighbours
-                            if drone.role == DroneRole.LEADER and
-                            drone.navigation.is_in_formation()]
-            connections.extend(leader_peers)
-
-        if connections:
-            self.drone.communication.send_registration(connections)
-
-    def _scout_network(self):
-        """
-        Update the network for scout drones.
-
-        Connect with a subset of the drones that share the same leader.
-        """
-        max_peers = self.drone.max_peers
-
-        leader = self.drone.knowledge.network.leader
-
-        # If the scout has no leader, connect with the closest leader
-        if leader is None:
-            if self.drone.knowledge.closest_leader and self.drone.knowledge.closest_leader.navigation.is_in_formation():
-                self.drone.communication.send_registration([self.drone.knowledge.closest_leader])
-                return
-            return
-
-        # Leader exists
-        # De-register if leader is out of communication range or not in formation
-        if (chebyshev_distance(self.drone.pos, leader.pos) > self.drone.communication_range or
-                not leader.navigation.is_in_formation()):
-            self.drone.communication.send_deregistration([leader])
-            for drone in self.drone.knowledge.network.peers:
-                # TODO: check if this is a good idea
-                self.drone.communication.send_deregistration([drone])
-            return
-
-        # Peers exist
-        existing_peers = self.drone.knowledge.network.peers
-        if existing_peers:
-            ex_peers = [drone for drone in existing_peers if
-                        chebyshev_distance(self.drone.pos, drone.pos) > self.drone.communication_range]
-            self.drone.communication.send_deregistration(ex_peers)
-            return
-
-        # Connect with new peers for the first time
-        peers = [drone for drone in leader.knowledge.network.followers if drone != self.drone]
-
-        # get the MAX_PEERS closest peers
-        peers = sorted(peers, key=lambda d: chebyshev_distance(self.drone.pos, d.pos))
-        peers = peers[:max_peers]
-        if peers:
-            self.drone.communication.send_registration(peers)
-
-    def _cordon_network(self):
-        """
-        Update the network for cordon drones.
-        """
-        pass
-
-    def _walker_network(self):
-        """
-        Update the network for walker drones.
-        """
-        pass
-
-    def elect_leader(self):
-        """
-        Best leader is one with most battery, and most connections and least leaders in neighbourhood.
-        """
-        pass
+        utility = (battery_factor * 0.5) + (fire_factor * 0.3) + (activity_factor * 0.2)
+        return min(1.0, max(0.0, utility))
